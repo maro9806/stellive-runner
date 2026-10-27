@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Stellive Cyber Runner - 스텔라이브 3D 런너</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="webgl-canvas"></canvas>
+
+    <!-- Top HUD -->
+    <div id="hud" class="ui-panel">
+      <div class="hud-left">
+        <div class="hud-item hearts-container" id="hearts-display">
+          <span class="heart-icon">❤️</span>
+          <span id="lives-count">1</span>
+        </div>
+        <div class="hud-item stage-tag" id="stage-display">STAGE 1</div>
+        <div id="rec-indicator" class="hud-item rec-badge hidden">
+          <span class="rec-dot"></span>
+          <span id="rec-timer">REC 00:00</span>
+        </div>
+      </div>
+      <div class="hud-center">
+        <div class="score-box">
+          <span class="score-label">SCORE</span>
+          <span id="score-val">0</span>
+        </div>
+      </div>
+      <div class="hud-right">
+        <div class="items-summary">
+          <span title="통나무 (+100)" class="item-badge log-badge">🪵 <span id="count-log">0</span></span>
+          <span title="치즈 (+300)" class="item-badge cheese-badge">🧀 <span id="count-cheese">0</span></span>
+          <span title="보라 다이아 (+1000)" class="item-badge diamond-badge">💎 <span id="count-diamond">0</span></span>
+        </div>
+        <div class="speed-box">
+          <span id="speed-val">0</span> km/h
+        </div>
+      </div>
+    </div>
+
+    <!-- Stage Progress Bar -->
+    <div id="stage-progress-bar-container">
+      <div id="stage-progress-bar"></div>
+      <div id="stage-gate-label">NEXT STAGE (LIFE +1)</div>
+    </div>
+
+    <!-- Notification Banner (e.g. Stage Clear, Extra Life) -->
+    <div id="toast-banner" class="toast-hidden"></div>
+
+    <!-- Countdown Overlay (3, 2, 1, GO!) -->
+    <div id="countdown-overlay" class="countdown-hidden">
+      <div id="countdown-number">3</div>
+    </div>
+
+    <!-- Start & Character Selection Screen -->
+    <div id="start-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h1 class="game-title">✨ STELLIVE CYBER RUNNER ✨</h1>
+        <p class="subtitle">스텔라이브 팬 캐릭터와 함께 달리는 3D 네온 무한 질주!</p>
+
+        <div class="section-title">캐릭터 선택 (스텔라이브 1~4기생 총 14종 & 커스텀)</div>
+        <div class="character-grid" id="character-grid">
+          <!-- 12 character cards injected via JS -->
+        </div>
+
+        <div class="custom-upload-box">
+          <label for="custom-img-input" class="custom-upload-btn">
+            📁 나만의 캐릭터 이미지 직접 업로드 (PNG/JPG)
+          </label>
+          <input type="file" id="custom-img-input" accept="image/*" style="display: none;">
+          <span id="custom-img-name">기본 프리셋 적용 중</span>
+        </div>
+
+        <div class="instructions">
+          <div>🕹️ <b>조작법</b>: [A / D] 또는 [← / →] 키 (모바일: 터치 좌우 드래그)</div>
+          <div>🪵 통나무 (+100) | 🧀 치즈 (+300) | 💎 보라 다이아 (+1000)</div>
+          <div>❤️ <b>목숨</b>: 처음 1개 시작, <b>스테이지 클리어마다 +1 보너스 목숨 획득!</b></div>
+        </div>
+
+        <div class="record-option-box">
+          <label class="record-checkbox-label">
+            <input type="checkbox" id="auto-rec-checkbox" checked>
+            <span>📹 <b>플레이 영상 자동 녹화</b> (게임 오버 후 저장 여부 결정)</span>
+          </label>
+        </div>
+
+        <button id="start-btn" class="glow-btn">게임 시작 (START)</button>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h1 class="game-over-title">GAME OVER</h1>
+        <div class="result-stats">
+          <div class="stat-row">
+            <span>탈락 원인:</span>
+            <strong id="final-cause" style="color: #ff5252;">[휴방] 피격</strong>
+          </div>
+          <div class="stat-row">
+            <span>도달 스테이지:</span>
+            <strong id="final-stage">Stage 1</strong>
+          </div>
+          <div class="stat-row">
+            <span>최종 점수:</span>
+            <strong id="final-score" class="highlight">0</strong>
+          </div>
+          <div class="stat-row">
+            <span>달린 거리:</span>
+            <strong id="final-distance">0m</strong>
+          </div>
+          <div class="stat-row">
+            <span>획득 아이템:</span>
+            <span id="final-items">🪵 0 / 🧀 0 / 💎 0</span>
+          </div>
+          <div class="stat-row best-row">
+            <span>최고 기록:</span>
+            <strong id="best-score">0</strong>
+          </div>
+        </div>
+
+        <!-- Gameplay Video Recording Section -->
+        <div id="video-save-section" class="video-save-box hidden">
+          <div class="video-save-header">
+            <span class="video-title">🎬 이번 판 플레이 녹화 영상</span>
+            <span id="video-info-badge" class="badge-mini">00:00</span>
+          </div>
+          <video id="recorded-video-preview" controls playsinline class="video-preview-player"></video>
+          <div class="video-actions">
+            <button id="download-video-btn" class="download-btn">📥 영상 파일 다운로드 (저장)</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="restart-btn" class="glow-btn">다시 도전 (RETRY)</button>
+          <button id="char-change-btn" class="secondary-btn">캐릭터 변경</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Touch Area Visualizer -->
+    <div id="touch-controls" class="touch-controls">
+      <div class="touch-side touch-left">◀ TAP / HOLD</div>
+      <div class="touch-side touch-right">TAP / HOLD ▶</div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
